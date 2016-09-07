@@ -1,0 +1,58 @@
+---
+title: "Practical Machine Learning"
+author: "Drew Owen"
+date: "August 31, 2016"
+output: pdf_document
+---
+The goal of this project is to construct a model using machine learning algorithms to predict correct or incorrect form of a person performing a common weightlifting exercise, a dumbbell curl. The data used in training the model was taken from kinematic sensors taken from three sensors (belt and arm of person and a third sensor on the dumbbell). The raw versio of this data contained 19622 observations across 160 variables.
+
+
+##Pre-Processing
+Some pre-processing of the data was performed to remove inconsistent predictors and to shorten modeling time. Columns containing any NAs were removed from the data set as this was not compatible with the training of the model. This removal cut the number of predictors from 160 to 60. An additional 7 variables were removed. These concerned the name of the person performing the lift, date/time signifiers and other descriptors of the data frame that did not affect the kinematic data.
+```{r, echo=TRUE}
+set.seed(17)
+setwd("C:/Users/Drew/Documents/Data_Science/MachineLearning")
+library(caret)
+dat1<-read.csv("pml-training.csv",na.strings=c(""," ","NA"))
+dat2<-dat1[, apply(dat1, 2, function(x) sum(!is.na(x)))==dim(dat1)[1]]
+dat3<-dat2[,-7:-1]
+```
+What remains is 52 variables related to the motion of the belt, arm and dumbbell sensors and the classe of the motion performed. The classe was broken down into 5 levels, A (Correct form), B, C, D and E (Incorrect form). The goal is to predict incorrect form using the kinematic data recorded from the sensors. 
+
+##Machine Learning Algorithm
+The machine learning algorithm utilize boosting with trees to train the model. A desicion tree approach was selected because of the categorical nature of the desired predictions, Correct or Incorrect form. Boosting was chosen because each individual piece of kinematic data is relatively insignificant but when combined with the others represents the true movement of the dumbbell in space. This is similar to the principle of boosting where a number of individually weak predictors are combined to create a strong predictor. Repeated (n=3) cross validation was performed using k-fold (k=5) to prevent overfitting.
+
+The model was trained on a subset of the training data. This allowed for a second data set to test against the trained model to test the accuracy of the model.
+
+```{r, echo=TRUE, eval=TRUE, cache =TRUE}
+tc<-trainControl(method="repeatedcv", number = 5, repeats= 3)
+inTrain <- createDataPartition(dat3$classe, p = 0.70, list = FALSE)
+dat3_train<-dat3[inTrain,]
+dat3_test<-dat3[-inTrain,]
+mod_gbm<-train(classe~., data=dat3_train, method = "gbm", trControl = tc)
+
+```
+
+```{r, echo=TRUE, cache =TRUE}
+mod_gbm
+```
+
+```{r, echo=TRUE, cache =TRUE}
+pred_test<-predict(mod_gbm, dat3_test)
+confusionMatrix(dat3_test$classe, pred_test)
+```
+This model exhibited an accuracy of 96.43%, yielding an an error rate of 3.57%. This was deemed adequate for applying to the validatio data set.
+
+##Validation Testing
+Similar preprocessing was performed on the validation data set as was done with the training and testing data.
+```{r, echo=TRUE, cache =TRUE}
+validData <- read.csv("pml-testing.csv", na.strings = c("NA", ""))
+validdat2<-validData[, apply(validData, 2, function(x) sum(!is.na(x)))==dim(validData)[1]]
+validdat3<-validdat2[,-7:-1]
+
+```
+
+The results from this analysis were submitted to the course quiz.
+```{r, echo=TRUE, cache =TRUE}
+predvalid<-predict(mod_gbm, validdat3)
+```
